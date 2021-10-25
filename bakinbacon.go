@@ -27,7 +27,7 @@ type BakinBacon struct {
 	*baconclient.BaconClient
 	*notifications.NotificationHandler
 	*payouts.PayoutsHandler
-	*storage.Storage
+	*storage.BoltStorage
 	*util.NetworkConstants
 	Flags
 }
@@ -51,14 +51,14 @@ func NewBakinBacon(wg sync.WaitGroup, shutdownChannel chan interface{}) (bakinba
 	bakinbacon.parseArgs()
 
 	// Open/Init database
-	bakinbacon.Storage, err = storage.InitStorage(bakinbacon.dataDir, bakinbacon.network)
+	bakinbacon.BoltStorage, err = storage.InitBoltStorage(bakinbacon.dataDir, bakinbacon.network)
 	if err != nil {
 		log.WithError(err).Fatal("Could not open storage")
 		return nil, err
 	}
 
 	// Global Notifications handler singleton
-	bakinbacon.NotificationHandler, err = notifications.NewHandler(bakinbacon.Storage)
+	bakinbacon.NotificationHandler, err = notifications.NewHandler(bakinbacon.BoltStorage)
 	if err != nil {
 		log.WithError(err).Error("Unable to load notifiers")
 		return nil, err
@@ -72,7 +72,7 @@ func NewBakinBacon(wg sync.WaitGroup, shutdownChannel chan interface{}) (bakinba
 	}
 
 	// Set up RPC polling-monitoring
-	bakinbacon.BaconClient, err = baconclient.New(bakinbacon.NotificationHandler, bakinbacon.Storage, bakinbacon.NetworkConstants, shutdownChannel, &wg)
+	bakinbacon.BaconClient, err = baconclient.New(bakinbacon.NotificationHandler, bakinbacon.BoltStorage, bakinbacon.NetworkConstants, shutdownChannel, &wg)
 	if err != nil {
 		log.WithError(err).Fatalf("Cannot create BaconClient")
 		return nil, err
@@ -80,7 +80,7 @@ func NewBakinBacon(wg sync.WaitGroup, shutdownChannel chan interface{}) (bakinba
 
 	// For managing rewards payouts
 	bakinbacon.PayoutsHandler, err = payouts.NewPayoutsHandler(
-		bakinbacon.BaconClient, bakinbacon.Storage, bakinbacon.NetworkConstants, bakinbacon.NotificationHandler)
+		bakinbacon.BaconClient, bakinbacon.BoltStorage, bakinbacon.NetworkConstants, bakinbacon.NotificationHandler)
 	if err != nil {
 		log.WithError(err).Fatalf("Cannot create payouts handler")
 		return nil, err
@@ -134,7 +134,7 @@ func main() {
 	webServerArgs := webserver.WebServerArgs{
 		Client:              bakinbacon.BaconClient,
 		NotificationHandler: bakinbacon.NotificationHandler,
-		Storage:             bakinbacon.Storage,
+		Storage:             bakinbacon.BoltStorage,
 		BindAddr:            bakinbacon.webUiAddr,
 		BindPort:            bakinbacon.webUiPort,
 		TemplateVars:        templateVars,
@@ -209,7 +209,7 @@ Main:
 	wg.Wait()
 
 	// Clean close DB, logs
-	bakinbacon.Storage.Close()
+	bakinbacon.BoltStorage.Close()
 	closeLogging()
 
 	os.Exit(0)

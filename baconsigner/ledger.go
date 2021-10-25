@@ -29,13 +29,13 @@ type LedgerSigner struct {
 
 	// Actual object of the ledger
 	ledger  *ledger.TezosLedger
-	storage *storage.Storage
+	storage *SignerStorage
 	lock    sync.Mutex
 }
 
 var L *LedgerSigner
 
-func InitLedgerSigner(db *storage.Storage) error {
+func InitLedgerSigner(db *storage.BoltStorage) error {
 
 	L = &LedgerSigner{
 		Info: &LedgerInfo{},

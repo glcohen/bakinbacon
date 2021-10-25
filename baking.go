@@ -78,7 +78,7 @@ func (bb *BakinBacon) handleBake(ctx context.Context, wg *sync.WaitGroup, block 
 	nextLevelToBake := block.Header.Level + 1
 
 	// Check watermark to ensure we have not baked at this level before
-	watermark, err := bb.Storage.GetBakingWatermark()
+	watermark, err := bb.BoltStorage.GetBakingWatermark()
 	if err != nil {
 		// watermark = 0 on DB error
 		log.WithError(err).Error("Unable to get baking watermark from DB")
@@ -500,14 +500,14 @@ func (bb *BakinBacon) handleBake(ctx context.Context, wg *sync.WaitGroup, block 
 	}).Info("Block Injected")
 
 	// Save watermark to DB
-	if err := bb.Storage.RecordBakedBlock(nextLevelToBake, blockHash); err != nil {
+	if err := bb.BoltStorage.RecordBakedBlock(nextLevelToBake, blockHash); err != nil {
 		log.WithError(err).Error("Unable to save block; Watermark compromised")
 	}
 
 	// Save nonce to DB for reveal in next cycle
 	withNonce := ""
 	if n.EncodedNonce != "" {
-		if err := bb.Storage.SaveNonce(block.Metadata.Level.Cycle, n); err != nil {
+		if err := bb.BoltStorage.SaveNonce(block.Metadata.Level.Cycle, n); err != nil {
 			log.WithError(err).Error("Unable to save nonce for reveal")
 		}
 		withNonce = ", with nonce"

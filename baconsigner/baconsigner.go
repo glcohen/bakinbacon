@@ -24,7 +24,7 @@ var (
 type BaconSigner struct {
 	BakerPkh   string
 	signerType int
-	storage    *storage.Storage
+	storage SignerStorage
 }
 
 // SignOperationOutput contains an operation with the signature appended, and the signature
@@ -35,7 +35,7 @@ type SignOperationOutput struct {
 }
 
 // New
-func New(db *storage.Storage) (*BaconSigner, error) {
+func New(db *storage.BoltStorage) (*BaconSigner, error) {
 
 	bs := &BaconSigner{
 		storage: db,

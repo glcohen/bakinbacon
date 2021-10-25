@@ -35,10 +35,10 @@ type Notifier interface {
 type NotificationHandler struct {
 	notifiers        map[string]Notifier
 	lastSentCategory map[Category]time.Time
-	storage          *storage.Storage
+	storage          *storage.BoltStorage
 }
 
-func NewHandler(db *storage.Storage) (*NotificationHandler, error) {
+func NewHandler(db *storage.BoltStorage) (*NotificationHandler, error) {
 
 	n := &NotificationHandler{
 		notifiers:        make(map[string]Notifier),

@@ -32,7 +32,7 @@ type BaconSlice struct {
 type BaconClient struct {
 	NewBlockNotifier    chan *rpc.Block
 	NotificationHandler *notifications.NotificationHandler
-	Storage             *storage.Storage
+	Storage             *storage.BoltStorage
 	Current             *BaconSlice
 	rpcClients          []*BaconSlice
 
@@ -46,7 +46,7 @@ type BaconClient struct {
 	waitGroup         *sync.WaitGroup
 }
 
-func New(nh *notifications.NotificationHandler, db *storage.Storage, nc *util.NetworkConstants, shutdown chan interface{}, wg *sync.WaitGroup) (*BaconClient, error) {
+func New(nh *notifications.NotificationHandler, db *storage.BoltStorage, nc *util.NetworkConstants, shutdown chan interface{}, wg *sync.WaitGroup) (*BaconClient, error) {
 
 	// Make new client manager
 	newBaconClient := &BaconClient{

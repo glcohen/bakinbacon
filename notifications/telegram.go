@@ -20,7 +20,7 @@ type NotifyTelegram struct {
 	ApiKey  string `json:"apikey"`
 	Enabled bool   `json:"enabled"`
 
-	storage *storage.Storage
+	storage *storage.BoltStorage
 }
 
 // NewTelegram creates a new NotifyTelegram object using a JSON byte-stream

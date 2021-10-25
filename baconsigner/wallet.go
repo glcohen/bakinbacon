@@ -13,12 +13,12 @@ type WalletSigner struct {
 	sk      string
 	pkh     string
 	wallet  *gtks.Key
-	storage *storage.Storage
+	storage *storage.BoltStorage
 }
 
 var W *WalletSigner
 
-func InitWalletSigner(db *storage.Storage) error {
+func InitWalletSigner(db *storage.BoltStorage) error {
 
 	W = &WalletSigner{
 		storage: db,

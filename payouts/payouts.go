@@ -20,13 +20,13 @@ import (
 type PayoutsHandler struct {
 	client        *baconclient.BaconClient
 	constants     *util.NetworkConstants
-	storage       *storage.Storage
+	storage       *storage.BoltStorage
 	notifications *notifications.NotificationHandler
 }
 
 var bakerFee = 8
 
-func NewPayoutsHandler(bc *baconclient.BaconClient, db *storage.Storage, nc *util.NetworkConstants, nh *notifications.NotificationHandler) (*PayoutsHandler, error) {
+func NewPayoutsHandler(bc *baconclient.BaconClient, db *storage.BoltStorage, nc *util.NetworkConstants, nh *notifications.NotificationHandler) (*PayoutsHandler, error) {
 
 	return &PayoutsHandler{
 		client:        bc,
@@ -51,10 +51,10 @@ func (p *PayoutsHandler) HandlePayouts(ctx context.Context, wg *sync.WaitGroup, 
 	}()
 
 	// Only handle payouts in levels 32-48 of cycle
-// 	cyclePosition := block.Metadata.Level.CyclePosition
-// 	if cyclePosition < 32 || cyclePosition > 48 {
-// 		return
-// 	}
+	// 	cyclePosition := block.Metadata.Level.CyclePosition
+	// 	if cyclePosition < 32 || cyclePosition > 48 {
+	// 		return
+	// 	}
 
 	// Check if payouts already processed for this cycle
 	// bb.GetPayoutsForCycle(block.Metadata.Level.Cycle)
@@ -67,7 +67,7 @@ func (p *PayoutsHandler) HandlePayouts(ctx context.Context, wg *sync.WaitGroup, 
 	payoutCycle := thisCycle - (p.constants.PreservedCycles + 1)
 
 	// Calculate the first block of the payout cycle so we can determine the chosen snapshot index
-	firstLevelPayoutCycle := p.constants.GranadaActivationLevel + ((payoutCycle - p.constants.GranadaActivationCycle - p.constants.PreservedCycles) * p.constants.BlocksPerCycle + 1)
+	firstLevelPayoutCycle := p.constants.GranadaActivationLevel + ((payoutCycle-p.constants.GranadaActivationCycle-p.constants.PreservedCycles)*p.constants.BlocksPerCycle + 1)
 
 	// Get the snapshot index for the payouts cycle
 	resp, cycle, err := p.client.Current.GetCycleAtHash(strconv.Itoa(firstLevelPayoutCycle), payoutCycle)
@@ -80,7 +80,7 @@ func (p *PayoutsHandler) HandlePayouts(ctx context.Context, wg *sync.WaitGroup, 
 
 	chosenSnapshotIndex := cycle.RollSnapshot
 
-	snapshotLevel := p.constants.GranadaActivationLevel + ((payoutCycle - p.constants.GranadaActivationCycle - p.constants.PreservedCycles - 2) * p.constants.BlocksPerCycle + (chosenSnapshotIndex + 1) * p.constants.BlocksPerRollSnapshot)
+	snapshotLevel := p.constants.GranadaActivationLevel + ((payoutCycle-p.constants.GranadaActivationCycle-p.constants.PreservedCycles-2)*p.constants.BlocksPerCycle + (chosenSnapshotIndex+1)*p.constants.BlocksPerRollSnapshot)
 
 	// This is the last block of the cycle which contains reward payout information
 	// in the form of a 'balance_update'
@@ -112,7 +112,7 @@ func (p *PayoutsHandler) HandlePayouts(ctx context.Context, wg *sync.WaitGroup, 
 	// Query the snapshot level and get all delegators and their staking balances
 	snapshotBlockID := rpc.BlockIDLevel(snapshotLevel)
 	bakerInput := rpc.DelegateInput{
-		BlockID: &snapshotBlockID,
+		BlockID:  &snapshotBlockID,
 		Delegate: pkh,
 	}
 
@@ -144,17 +144,17 @@ func (p *PayoutsHandler) HandlePayouts(ctx context.Context, wg *sync.WaitGroup, 
 	}
 
 	cycleRewardMetadata := &CycleRewardMetadata{
-		PayoutCycle: payoutCycle,
+		PayoutCycle:        payoutCycle,
 		LevelOfPayoutCycle: firstLevelPayoutCycle,
-		SnapshotIndex: chosenSnapshotIndex,
-		SnapshotLevel: snapshotLevel,
-		UnfrozenLevel: lastBlockUnfrozen,
-		Balance: balance,
-		NumDelegators: len(bakerInfo.DelegateContracts),
-		StakingBalance: stakingBalance,
-		DelegatedBalance: delegatedBalance,
-		BlockRewards: blockRewards,
-		FeeRewards: feeRewards,
+		SnapshotIndex:      chosenSnapshotIndex,
+		SnapshotLevel:      snapshotLevel,
+		UnfrozenLevel:      lastBlockUnfrozen,
+		Balance:            balance,
+		NumDelegators:      len(bakerInfo.DelegateContracts),
+		StakingBalance:     stakingBalance,
+		DelegatedBalance:   delegatedBalance,
+		BlockRewards:       blockRewards,
+		FeeRewards:         feeRewards,
 	}
 
 	// Save to DB
@@ -183,7 +183,7 @@ func (p *PayoutsHandler) HandlePayouts(ctx context.Context, wg *sync.WaitGroup, 
 
 		// Fetch delegator balance from RPC
 		delegatorInput := rpc.ContractBalanceInput{
-			BlockID: &snapshotBlockID,
+			BlockID:    &snapshotBlockID,
 			ContractID: delegatorAddress,
 		}
 
@@ -208,7 +208,7 @@ func (p *PayoutsHandler) HandlePayouts(ctx context.Context, wg *sync.WaitGroup, 
 		// based in mutez (int)
 
 		// Calculate delegator share %, rounded to 6 decimal places
-		reward.SharePct = math.Round((float64(delegatorBalance) / stakeBalance64) * 1000000) / 1000000
+		reward.SharePct = math.Round((float64(delegatorBalance)/stakeBalance64)*1000000) / 1000000
 
 		// Calculate delegator share of the rewards in mutez
 		rewardShareRevenue := int(totalBakerRewards * reward.SharePct)

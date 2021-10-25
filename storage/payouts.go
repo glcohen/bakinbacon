@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bakinbacon/util"
 	"encoding/json"
 
 	"github.com/pkg/errors"
@@ -15,11 +16,11 @@ const (
 )
 
 // GetPayoutsMetadata returns a byte-slice of raw JSON from DB
-func (s *Storage) GetPayoutsMetadata() (map[int]json.RawMessage, error) {
+func (s *BoltStorage) GetPayoutsMetadata() (map[int]json.RawMessage, error) {
 
 	payoutsMetadata := make(map[int]json.RawMessage)
 
-	err := s.db.View(func(tx *bolt.Tx) error {
+	err := s.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(PAYOUTS_BUCKET))
 		if b == nil {
 			return errors.New("Unable to locate cycle payouts bucket")
@@ -31,7 +32,7 @@ func (s *Storage) GetPayoutsMetadata() (map[int]json.RawMessage, error) {
 
 			// keys are cycle numbers, which are buckets of data
 			cycleBucket := b.Bucket(k)
-			cycle := btoi(k)
+			cycle := util.BToI(k)
 
 			// Get metadata key from bucket
 			metadataBytes := cycleBucket.Get([]byte(METADATA))
@@ -52,13 +53,13 @@ func (s *Storage) GetPayoutsMetadata() (map[int]json.RawMessage, error) {
 	return payoutsMetadata, err
 }
 
-func (s *Storage) GetCyclePayouts(cycle int) (map[string]json.RawMessage, error) {
+func (s *BoltStorage) GetCyclePayouts(cycle int) (map[string]json.RawMessage, error) {
 
 	// key is delegator address
 	cyclePayouts := make(map[string]json.RawMessage)
 
-	err := s.db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(PAYOUTS_BUCKET)).Bucket(itob(cycle))
+	err := s.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(PAYOUTS_BUCKET)).Bucket(util.IToB(cycle))
 		if b == nil {
 			return errors.New("Unable to locate cycle payouts bucket")
 		}
@@ -80,7 +81,7 @@ func (s *Storage) GetCyclePayouts(cycle int) (map[string]json.RawMessage, error)
 	return cyclePayouts, err
 }
 
-func (s *Storage) SaveCycleRewardMetadata(rewardCycle int, metadata *payouts.CycleRewardMetadata) error {
+func (s *BoltStorage) SaveCycleRewardMetadata(rewardCycle int, metadata *payouts.CycleRewardMetadata) error {
 
 	// Marshal metadata to JSON and store in 'metadata' key
 	metadataBytes, err := json.Marshal(metadata)
@@ -88,8 +89,8 @@ func (s *Storage) SaveCycleRewardMetadata(rewardCycle int, metadata *payouts.Cyc
 		return errors.Wrap(err, "Unable to marshal rewards metadata")
 	}
 
-	return s.db.Update(func(tx *bolt.Tx) error {
-		b, err := tx.Bucket([]byte(PAYOUTS_BUCKET)).CreateBucketIfNotExists(itob(rewardCycle))
+	return s.Update(func(tx *bolt.Tx) error {
+		b, err := tx.Bucket([]byte(PAYOUTS_BUCKET)).CreateBucketIfNotExists(util.IToB(rewardCycle))
 		if err != nil {
 			return errors.New("Unable to create cycle payouts bucket")
 		}
@@ -98,7 +99,7 @@ func (s *Storage) SaveCycleRewardMetadata(rewardCycle int, metadata *payouts.Cyc
 	})
 }
 
-func (s *Storage) SaveDelegatorReward(rewardCycle int, rewardRecord *payouts.DelegatorReward) error {
+func (s *BoltStorage) SaveDelegatorReward(rewardCycle int, rewardRecord *payouts.DelegatorReward) error {
 
 	// Marshal reward
 	rewardRecordBytes, err := json.Marshal(rewardRecord)
@@ -106,8 +107,8 @@ func (s *Storage) SaveDelegatorReward(rewardCycle int, rewardRecord *payouts.Del
 		return errors.Wrap(err, "Unable to marshal reward record")
 	}
 
-	return s.db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(PAYOUTS_BUCKET)).Bucket(itob(rewardCycle))
+	return s.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(PAYOUTS_BUCKET)).Bucket(util.IToB(rewardCycle))
 		if b == nil {
 			return errors.New("Unable to locate cycle payouts bucket")
 		}

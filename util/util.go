@@ -1,6 +1,7 @@
 package util
 
 import (
+	"encoding/binary"
 	_ "encoding/hex"
 	"strings"
 
@@ -47,4 +48,15 @@ func StripQuote(s string) string {
 
 func AvailableNetworks() string {
 	return strings.Join([]string{NETWORK_MAINNET, NETWORK_GRANADANET, NETWORK_HANGZHOUNET}, ",")
+}
+
+// IToB returns an 8-byte big endian representation of v.
+func IToB(v int) []byte {
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, uint64(v))
+	return b
+}
+
+func BToI(b []byte) int {
+	return int(binary.BigEndian.Uint64(b))
 }

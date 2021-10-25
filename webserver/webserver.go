@@ -45,14 +45,14 @@ type WebServer struct {
 	httpSvr             *http.Server
 	baconClient         *baconclient.BaconClient
 	notificationHandler *notifications.NotificationHandler
-	storage             *storage.Storage
+	storage             *storage.BoltStorage
 }
 
 type WebServerArgs struct {
 	Client              *baconclient.BaconClient
 	NotificationHandler *notifications.NotificationHandler
 	PayoutsHandler      *payouts.PayoutsHandler
-	Storage             *storage.Storage
+	Storage             *storage.BoltStorage
 
 	BindAddr        string
 	BindPort        int

@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bakinbacon/util"
 	"encoding/json"
 
 	"github.com/pkg/errors"
@@ -11,7 +12,7 @@ import (
 	"bakinbacon/nonce"
 )
 
-func (s *Storage) SaveNonce(cycle int, n nonce.Nonce) error {
+func (s *BoltStorage) SaveNonce(cycle int, n nonce.Nonce) error {
 
 	// Nonces are stored within a cycle bucket for easy retrieval
 	nonceBytes, err := json.Marshal(n)
@@ -19,22 +20,22 @@ func (s *Storage) SaveNonce(cycle int, n nonce.Nonce) error {
 		return errors.Wrap(err, "Unable to marshal nonce")
 	}
 
-	return s.db.Update(func(tx *bolt.Tx) error {
-		cb, err := tx.Bucket([]byte(NONCE_BUCKET)).CreateBucketIfNotExists(itob(cycle))
+	return s.Update(func(tx *bolt.Tx) error {
+		cb, err := tx.Bucket([]byte(NONCE_BUCKET)).CreateBucketIfNotExists(util.IToB(cycle))
 		if err != nil {
 			return errors.Wrap(err, "Unable to create nonce-cycle bucket")
 		}
-		return cb.Put(itob(n.Level), nonceBytes)
+		return cb.Put(util.IToB(n.Level), nonceBytes)
 	})
 }
 
-func (s *Storage) GetNoncesForCycle(cycle int) ([]nonce.Nonce, error) {
+func (s *BoltStorage) GetNoncesForCycle(cycle int) ([]nonce.Nonce, error) {
 
 	// Get back all nonces for cycle
 	var nonces []nonce.Nonce
 
-	err := s.db.Update(func(tx *bolt.Tx) error {
-		cb, err := tx.Bucket([]byte(NONCE_BUCKET)).CreateBucketIfNotExists(itob(cycle))
+	err := s.Update(func(tx *bolt.Tx) error {
+		cb, err := tx.Bucket([]byte(NONCE_BUCKET)).CreateBucketIfNotExists(util.IToB(cycle))
 		if err != nil {
 			return errors.Wrap(err, "Unable to create nonce-cycle bucket")
 		}
