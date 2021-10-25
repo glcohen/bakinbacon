@@ -46,58 +46,77 @@ type Flags struct {
 
 // TODO: Translations (https://www.transifex.com/bakinbacon/bakinbacon-core/content/)
 
-func main() {
-
-	// Used throughout main
-	var (
-		err error
-		wg  sync.WaitGroup
-		ctx context.Context
-	)
-
-	// Init the main server
-	bakinbacon = &BakinBacon{}
+func NewBakinBacon(wg sync.WaitGroup, shutdownChannel chan interface{}) (bakinbacon *BakinBacon, err error) {
+	bakinbacon = new(BakinBacon)
 	bakinbacon.parseArgs()
-
-	// Logging
-	setupLogging(bakinbacon.logDebug, bakinbacon.logTrace)
-
-	// Clean exits
-	shutdownChannel := setupCloseChannel()
 
 	// Open/Init database
 	bakinbacon.Storage, err = storage.InitStorage(bakinbacon.dataDir, bakinbacon.network)
 	if err != nil {
 		log.WithError(err).Fatal("Could not open storage")
+		return nil, err
 	}
-
-	// Start
-	log.Infof("=== BakinBacon v1.0 (%s) ===", commitHash)
-	log.Infof("=== Network: %s ===", bakinbacon.network)
 
 	// Global Notifications handler singleton
 	bakinbacon.NotificationHandler, err = notifications.NewHandler(bakinbacon.Storage)
 	if err != nil {
 		log.WithError(err).Error("Unable to load notifiers")
+		return nil, err
 	}
 
 	// Network constants
 	bakinbacon.NetworkConstants, err = util.GetNetworkConstants(bakinbacon.network)
 	if err != nil {
 		log.WithError(err).Fatal("Cannot load network constants")
+		return nil, err
 	}
+
+	// Set up RPC polling-monitoring
+	bakinbacon.BaconClient, err = baconclient.New(bakinbacon.NotificationHandler, bakinbacon.Storage, bakinbacon.NetworkConstants, shutdownChannel, &wg)
+	if err != nil {
+		log.WithError(err).Fatalf("Cannot create BaconClient")
+		return nil, err
+	}
+
+	// For managing rewards payouts
+	bakinbacon.PayoutsHandler, err = payouts.NewPayoutsHandler(
+		bakinbacon.BaconClient, bakinbacon.Storage, bakinbacon.NetworkConstants, bakinbacon.NotificationHandler)
+	if err != nil {
+		log.WithError(err).Fatalf("Cannot create payouts handler")
+		return nil, err
+	}
+
+	return bakinbacon, nil
+}
+
+func main() {
+	// Used throughout main
+	var wg sync.WaitGroup
+
+	// Create a new context
+	ctx := context.Background()
+
+	// Clean exits
+	shutdownChannel := setupCloseChannel()
+
+	// Init the main server
+	bakinbacon, err := NewBakinBacon(wg, shutdownChannel)
+	if err != nil {
+		log.WithError(err).Fatal("could not instantiate the bakin bacon server")
+	}
+
+	// Logging
+	setupLogging(bakinbacon.logDebug, bakinbacon.logTrace)
+
+	// Start
+	log.Infof("=== BakinBacon v1.0 (%s) ===", commitHash)
+	log.Infof("=== Network: %s ===", bakinbacon.network)
 
 	log.WithFields(log.Fields{ //nolint:wsl
 		"BlocksPerCycle":      bakinbacon.NetworkConstants.BlocksPerCycle,
 		"BlocksPerCommitment": bakinbacon.NetworkConstants.BlocksPerCommitment,
 		"TimeBetweenBlocks":   bakinbacon.NetworkConstants.TimeBetweenBlocks,
 	}).Debug("Loaded Network Constants")
-
-	// Set up RPC polling-monitoring
-	bakinbacon.BaconClient, err = baconclient.New(bakinbacon.NotificationHandler, bakinbacon.Storage, bakinbacon.NetworkConstants, shutdownChannel, &wg)
-	if err != nil {
-		log.WithError(err).Fatalf("Cannot create BaconClient")
-	}
 
 	// Version checking
 	go bakinbacon.RunVersionCheck()
@@ -113,7 +132,6 @@ func main() {
 
 	// Args for web server
 	webServerArgs := webserver.WebServerArgs{
-		BakinBacon:          bakinbacon,
 		Client:              bakinbacon.BaconClient,
 		NotificationHandler: bakinbacon.NotificationHandler,
 		Storage:             bakinbacon.Storage,
@@ -128,15 +146,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	// For managing rewards payouts
-	bakinbacon.PayoutsHandler, err = payouts.NewPayoutsHandler(
-		bakinbacon.BaconClient, bakinbacon.Storage, bakinbacon.NetworkConstants, bakinbacon.NotificationHandler)
-	if err != nil {
-		log.WithError(err).Fatalf("Cannot create payouts handler")
-	}
-
 	// For canceling when new blocks appear
-	_, ctxCancel := context.WithCancel(context.Background())
+	_, ctxCancel := context.WithCancel(ctx)
 
 	// Run checks against our address; silent mode = false
 	_ = bakinbacon.CanBake(false)
@@ -145,7 +156,7 @@ func main() {
 	bakinbacon.updateRecentBaconStatus()
 
 	// loop forever, waiting for new blocks coming from the RPC monitors
-	Main:
+Main:
 	for {
 
 		select {
@@ -156,7 +167,7 @@ func main() {
 			ctxCancel()
 
 			// Create a new context for this run
-			ctx, ctxCancel = context.WithCancel(context.Background())
+			ctx, ctxCancel = context.WithCancel(ctx)
 
 			// If we can't bake, no need to do try and do anything else
 			// This check is silent = true on success
@@ -174,7 +185,7 @@ func main() {
 			go bakinbacon.handleBake(ctx, &wg, *block)
 
 			wg.Add(1)
-			go bakinbacon.handlePayouts(ctx, &wg, *block)
+			go bakinbacon.HandlePayouts(ctx, &wg, *block)
 
 			//
 			// Utility

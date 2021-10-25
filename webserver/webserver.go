@@ -26,7 +26,7 @@ import (
 var (
 	// Embed all UI objects
 	//go:embed build
-	staticUi embed.FS
+	staticUI embed.FS
 )
 
 type ApiError struct {
@@ -76,7 +76,7 @@ func Start(args WebServerArgs) error {
 	}
 
 	// Repoint web ui down one directory
-	staticContent, err := fs.Sub(staticUi, "build")
+	staticContent, err := fs.Sub(staticUI, "build")
 	if err != nil {
 		return errors.Wrap(err, "Could not find UI build directory")
 

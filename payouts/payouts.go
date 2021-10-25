@@ -38,7 +38,7 @@ func NewPayoutsHandler(bc *baconclient.BaconClient, db *storage.Storage, nc *uti
 
 // HandlePayouts At the beginning of each cycle, collect information about the baker's delegators and calculate
 // how much is owed to each based on the baker's fee and % share of each delegator in the overall staking balance
-func (p *PayoutsHandler) handlePayouts(ctx context.Context, wg *sync.WaitGroup, block rpc.Block) {
+func (p *PayoutsHandler) HandlePayouts(ctx context.Context, wg *sync.WaitGroup, block rpc.Block) {
 
 	// Decrement waitGroup on exit
 	defer wg.Done()
@@ -143,7 +143,7 @@ func (p *PayoutsHandler) handlePayouts(ctx context.Context, wg *sync.WaitGroup, 
 		return
 	}
 
-	cycleRewardMetadata := &payouts.CycleRewardMetadata{
+	cycleRewardMetadata := &CycleRewardMetadata{
 		PayoutCycle: payoutCycle,
 		LevelOfPayoutCycle: firstLevelPayoutCycle,
 		SnapshotIndex: chosenSnapshotIndex,
@@ -177,7 +177,7 @@ func (p *PayoutsHandler) handlePayouts(ctx context.Context, wg *sync.WaitGroup, 
 		}
 
 		// Reward record
-		reward := &payouts.DelegatorReward{
+		reward := &DelegatorReward{
 			Delegator: delegatorAddress,
 		}
 
